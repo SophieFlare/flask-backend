@@ -4,23 +4,27 @@ import sqlite3
 import time
 import json
 import os
+import logging
 
 app = Flask(__name__)
 
 print("🔥 RUNNING THIS FILE")
 
-# CORS (ok for now)
+# -------------------------
+# CORS
+# -------------------------
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-@app.route("/")
-def home():
-    return "Backend is running ✅"
-
+# -------------------------
+# ENABLE FLASK DEBUG LOGGING (IMPORTANT)
+# -------------------------
+logging.basicConfig(level=logging.INFO)
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.INFO)
 
 # -------------------------
-# DB SETUP (CROSS PLATFORM FIX)
+# DB SETUP
 # -------------------------
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "logs.db")
 
@@ -39,11 +43,24 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 init_db()
+
+# -------------------------
+# GLOBAL REQUEST LOGGER (🔥 THIS IS THE IMPORTANT PART)
+# -------------------------
+@app.before_request
+def log_every_request():
+    print("\n================ NEW REQUEST ================")
+    print("Method:", request.method)
+    print("Path:", request.path)
+    print("IP:", request.remote_addr)
+    print("User-Agent:", request.headers.get("User-Agent"))
+    print("Headers:", dict(request.headers))
 
 
 # -------------------------
-# GET CLIENT IP
+# GET CLIENT IP (safe behind proxies)
 # -------------------------
 def get_ip():
     xff = request.headers.get("X-Forwarded-For")
@@ -53,11 +70,15 @@ def get_ip():
 
 
 # -------------------------
-# TRACK ROUTE
+# ROUTES
 # -------------------------
+@app.route("/")
+def home():
+    return "Backend is running ✅"
+
+
 @app.route("/track", methods=["GET"])
 def track():
-
     ip = get_ip()
     ua = request.headers.get("User-Agent", "")
     now = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -68,8 +89,8 @@ def track():
         "time": now
     }
 
-    # LOG TO TERMINAL
-    print("\n🔥 NEW VISITOR:")
+    # TERMINAL LOG
+    print("\n🔥 NEW VISITOR TRACKED:")
     print(json.dumps(data, indent=2))
 
     # SAVE TO DB
@@ -82,7 +103,6 @@ def track():
     conn.commit()
     conn.close()
 
-   
     return jsonify({
         "status": "logged",
         "ip": ip,
@@ -90,16 +110,12 @@ def track():
         "time": now
     })
 
-# -------------------------
-# GET LOGS
-# -------------------------
+
 @app.route("/logs", methods=["GET"])
 def logs():
-
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT ip, user_agent, time FROM logs ORDER BY id DESC")
-
     rows = c.fetchall()
     conn.close()
 
@@ -110,8 +126,13 @@ def logs():
 
 
 # -------------------------
-# RENDER ENTRY POINT
+# RUN SERVER
 # -------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(
+        host="0.0.0.0",
+        port=port,
+        debug=True,
+        use_reloader=False  # prevents double logs in terminal
+    )
