@@ -82,8 +82,13 @@ def track():
     conn.commit()
     conn.close()
 
-    return jsonify({"status": "logged"})
-
+   
+    return jsonify({
+        "status": "logged",
+        "ip": ip,
+        "user_agent": ua,
+        "time": now
+    })
 
 # -------------------------
 # GET LOGS
