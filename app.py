@@ -4,19 +4,29 @@ import sqlite3
 import time
 import json
 import os
+
 app = Flask(__name__)
+
 print("🔥 RUNNING THIS FILE")
-# ✅ PRODUCTION CORS FIX (IMPORTANT)
+
+# CORS (ok for now)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route("/")
 def home():
     return "Backend is running ✅"
+
+
 # -------------------------
-# DB SETUP
+# DB SETUP (CROSS PLATFORM FIX)
 # -------------------------
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "logs.db")
+
+
 def init_db():
-    conn = sqlite3.connect("logs.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS logs (
@@ -58,12 +68,12 @@ def track():
         "time": now
     }
 
-    # ✅ TERMINAL LOG
+    # LOG TO TERMINAL
     print("\n🔥 NEW VISITOR:")
     print(json.dumps(data, indent=2))
 
-    # ✅ SAVE TO DB
-    conn = sqlite3.connect("logs.db")
+    # SAVE TO DB
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute(
         "INSERT INTO logs (ip, user_agent, time) VALUES (?, ?, ?)",
@@ -81,7 +91,7 @@ def track():
 @app.route("/logs", methods=["GET"])
 def logs():
 
-    conn = sqlite3.connect("logs.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT ip, user_agent, time FROM logs ORDER BY id DESC")
 
@@ -95,9 +105,8 @@ def logs():
 
 
 # -------------------------
-# RENDER ENTRY POINT (IMPORTANT)
+# RENDER ENTRY POINT
 # -------------------------
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
